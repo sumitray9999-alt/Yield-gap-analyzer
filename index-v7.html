@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yield gap analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #1B4D1F;
+  --green-mid: #2E7D33;
+  --green-pale: #E8F5E9;
+  --amber: #C8790A;
+  --amber-pale: #FFF3E0;
+  --parchment: #F5F1E7;
+  --parchment-dark: #EDE7DA;
+  --soil: #1C1208;
+  --muted: #6B5C45;
+  --border: rgba(28,18,8,0.11);
+  --border-mid: rgba(28,18,8,0.2);
+  --white: #FDFAF5;
+  --red: #C62828;
+  --red-pale: #FFEBEE;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; background: var(--parchment); }
+#app { font-family: 'DM Sans', sans-serif; color: var(--soil); }
+
+/* ─── WELCOME ─────────────────────────────────────── */
+#s-welcome {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.dots-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle, rgba(27,77,31,0.07) 1.5px, transparent 1.5px);
+  background-size: 26px 26px;
+}
+.welcome-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--green-pale); color: var(--green);
+  border: 1px solid rgba(27,77,31,0.2); border-radius: 20px;
+  padding: 6px 18px; font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1.5rem;
+}
+.welcome-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+.w-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 6vw, 3.6rem);
+  font-weight: 700; line-height: 1.1; margin-bottom: 1rem; max-width: 600px;
+}
+.w-title em { color: var(--green); font-style: italic; }
+.w-sub {
+  font-size: 1.05rem; color: var(--muted); max-width: 460px;
+  line-height: 1.7; margin-bottom: 2.5rem;
+}
+.stats-row { display: flex; gap: 3rem; margin-bottom: 2.5rem; flex-wrap: wrap; justify-content: center; }
+.stat-item { text-align: center; }
+.stat-n { font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 600; color: var(--green); display: block; }
+.stat-l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+.corn-icon { margin-bottom: 1.5rem; }
+.btn { font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.18s; border-radius: 11px; font-size: 0.95rem; font-weight: 600; }
+.btn-primary { background: var(--green); color: white; border: none; padding: 14px 38px; }
+.btn-primary:hover { background: var(--green-mid); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(27,77,31,0.28); }
+.btn-secondary { background: transparent; color: var(--green); border: 1.5px solid rgba(27,77,31,0.3); padding: 12px 28px; }
+.btn-secondary:hover { border-color: var(--green); background: var(--green-pale); }
+.disclaimer { font-size: 0.72rem; color: var(--muted); margin-top: 1rem; max-width: 380px; }
+
+/* ─── SURVEY ─────────────────────────────────────── */
+#s-survey { min-height: 100vh; display: flex; flex-direction: column; }
+.survey-top-bar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 1.2rem 2rem 0;
+}
+.survey-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
+.q-counter { font-size: 0.78rem; font-weight: 600; color: var(--green); text-transform: uppercase; letter-spacing: 0.07em; }
+.app-name-sm { font-family: 'Playfair Display', serif; font-size: 0.9rem; color: var(--muted); }
+.progress-track { height: 4px; background: rgba(27,77,31,0.1); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.45s ease; }
+.survey-body {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 2.5rem 2rem;
+  max-width: 620px; margin: 0 auto; width: 100%;
+}
+#q-container { width: 100%; }
+.q-num { font-size: 0.72rem; font-weight: 600; color: var(--amber); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem; }
+.q-label { font-family: 'Playfair Display', serif; font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 600; line-height: 1.3; margin-bottom: 1.8rem; }
+
+.select-wrap { position: relative; }
+.select-input {
+  width: 100%; padding: 14px 44px 14px 18px; border: 1.5px solid var(--border-mid);
+  border-radius: 12px; font-size: 0.95rem; background: var(--white);
+  color: var(--soil); font-family: 'DM Sans', sans-serif; cursor: pointer;
+  outline: none; appearance: none; transition: border-color 0.15s;
+}
+.select-input:focus { border-color: var(--green); }
+.select-arrow {
+  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; color: var(--muted);
+}
+
+.radio-grid { display: flex; flex-direction: column; gap: 10px; }
+.radio-opt {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px 18px; background: var(--white);
+  border: 1.5px solid var(--border); border-radius: 12px;
+  cursor: pointer; transition: all 0.14s; font-size: 0.93rem;
+  user-select: none;
+}
+.radio-opt:hover { border-color: rgba(27,77,31,0.4); background: var(--green-pale); }
+.radio-opt.sel { border-color: var(--green); background: var(--green-pale); }
+.radio-circle {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(28,18,8,0.2); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.14s;
+}
+.radio-opt.sel .radio-circle { border-color: var(--green); background: var(--green); }
+.radio-opt.sel .radio-circle::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: white; display: block; }
+
+.slider-wrap { width: 100%; }
+.slider-num-display { text-align: center; margin-bottom: 1.2rem; }
+.slider-big { font-family: 'JetBrains Mono', monospace; font-size: 3rem; font-weight: 600; color: var(--green); }
+.slider-unit { font-size: 1rem; color: var(--muted); margin-left: 6px; }
+input[type=range].rng {
+  -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+  outline: none; cursor: pointer; background: var(--border);
+}
+input[type=range].rng::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--green); border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(27,77,31,0.35); cursor: pointer;
+}
+input[type=range].rng::-moz-range-thumb {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--green); border: 3px solid white; cursor: pointer;
+}
+.range-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
+
+.survey-footer {
+  background: var(--white); border-top: 1px solid var(--border);
+  padding: 1.2rem 2rem; display: flex; align-items: center; justify-content: space-between;
+}
+.step-dots { display: flex; gap: 5px; }
+.step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-mid); transition: background 0.2s; }
+.step-dot.active { background: var(--green); }
+.step-dot.done { background: rgba(27,77,31,0.3); }
+
+/* ─── LOADING ────────────────────────────────────── */
+#s-loading {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 3rem 2rem; text-align: center;
+}
+.spinner {
+  width: 60px; height: 60px;
+  border: 3px solid rgba(27,77,31,0.12);
+  border-top-color: var(--green);
+  border-radius: 50%; animation: spin 0.9s linear infinite;
+  margin: 0 auto;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.loading-visual { width: 72px; height: 72px; margin: 0 auto 2rem; position: relative; display: flex; align-items: center; justify-content: center; }
+.spinner.done { opacity: 0; transform: scale(0.82); animation: none; }
+.loader-mark {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background: var(--green); color: white; display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; font-weight: 700; opacity: 0; transform: scale(0.72);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.loader-mark.show { opacity: 1; transform: scale(1); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+.loading-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2.5rem; }
+.lsteps { display: flex; flex-direction: column; gap: 10px; text-align: left; max-width: 340px; }
+.lstep { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: var(--muted); opacity: 0; transition: opacity 0.5s; }
+.lstep.vis { opacity: 1; }
+.lstep.done { color: var(--green); }
+.ldot { width: 8px; height: 8px; border-radius: 50%; background: rgba(28,18,8,0.15); flex-shrink: 0; transition: background 0.3s; }
+.lstep.vis:not(.done) .ldot { background: var(--amber); }
+.lstep.done .ldot { background: var(--green); }
+.lstep.done .ldot::after { content: ''; display: block; width: 3px; height: 5px; border: solid white; border-width: 0 1px 1px 0; transform: rotate(45deg); margin: 1px auto 0; }
+
+/* ─── RESULTS ────────────────────────────────────── */
+#s-results { min-height: 100vh; }
+.res-header {
+  background: var(--green); color: white;
+  padding: 2.5rem 2rem 3rem; text-align: center; position: relative; overflow: hidden;
+}
+.res-header::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
+}
+.rh-content { position: relative; }
+.rh-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; opacity: 0.7; margin-bottom: 0.4rem; }
+.rh-name { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.2rem; }
+.gauge-wrap { position: relative; width: 160px; height: 160px; margin: 0 auto 1rem; }
+.gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gauge-num { font-family: 'JetBrains Mono', monospace; font-size: 3rem; font-weight: 600; line-height: 1; }
+.gauge-of { font-size: 0.7rem; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; }
+.score-grade {
+  display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px; padding: 4px 18px; font-size: 0.82rem; font-weight: 500; margin-bottom: 1rem;
+}
+.key-insight { font-size: 0.88rem; opacity: 0.88; max-width: 480px; margin: 0 auto; line-height: 1.65; }
+
+.content-wrap { max-width: 760px; margin: 0 auto; padding: 0 1.25rem 4rem; }
+
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 1.5rem;
+}
+.mc { background: var(--white); border: 1px solid var(--border); border-radius: 13px; padding: 1rem; text-align: center; }
+.mc-l { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 5px; }
+.mc-v { font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 600; color: var(--soil); line-height: 1.1; }
+.mc-u { font-size: 0.72rem; color: var(--muted); display: block; margin-top: 2px; }
+.mc.g .mc-v { color: var(--green); }
+.mc.a .mc-v { color: var(--amber); }
+
+.target-banner {
+  background: var(--green); color: white; border-radius: 14px;
+  padding: 1.3rem 1.5rem; margin-top: 1.25rem;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.tb-left .tb-l { font-size: 0.68rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 3px; }
+.tb-left .tb-v { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 600; }
+.tb-left .tb-s { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+.tb-right { text-align: right; }
+.tb-right .tb-l { font-size: 0.68rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 3px; }
+.tb-right .tb-v { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 600; }
+.tb-right .tb-s { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+
+.section { margin-top: 2rem; }
+.sec-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 1rem;
+}
+.sec-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0;
+}
+.sec-icon.red { background: var(--red-pale); color: var(--red); }
+.sec-icon.green { background: var(--green-pale); color: var(--green); }
+.sec-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 600; }
+
+.factor-card { background: var(--white); border: 1px solid var(--border); border-radius: 13px; padding: 1.1rem 1.25rem; margin-bottom: 10px; }
+.fc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
+.fc-name { font-weight: 500; font-size: 0.93rem; flex: 1; }
+.fc-badges { display: flex; gap: 7px; flex-shrink: 0; flex-wrap: wrap; }
+.badge-loss { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 600; color: var(--red); background: var(--red-pale); padding: 2px 10px; border-radius: 20px; }
+.badge-gain { font-size: 0.78rem; color: var(--green); background: var(--green-pale); padding: 2px 10px; border-radius: 20px; }
+.fc-bar-track { height: 5px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 9px; }
+.fc-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(to right, #C62828, #EF9A9A); transition: width 1.2s ease; }
+.fc-rec { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+
+.ai-card { background: var(--white); border: 1px solid var(--border); border-radius: 13px; padding: 1.5rem; }
+.ai-top { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.ai-badge { background: var(--green); color: white; border-radius: 9px; padding: 5px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.ai-byline { font-size: 0.82rem; color: var(--muted); }
+.ai-analysis { font-size: 0.91rem; line-height: 1.78; color: var(--soil); }
+.divider { height: 1px; background: var(--border); margin: 1.2rem 0; }
+.actions-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+.action-list { display: flex; flex-direction: column; gap: 9px; }
+.action-row { display: flex; gap: 10px; align-items: flex-start; }
+.a-num { width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: white; font-size: 0.68rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.a-text { font-size: 0.87rem; line-height: 1.6; color: var(--soil); }
+
+.no-gap-msg { background: var(--green-pale); border: 1px solid rgba(27,77,31,0.2); border-radius: 13px; padding: 1.5rem; text-align: center; color: var(--green); font-weight: 500; }
+
+.restart-row { text-align: center; margin-top: 2.5rem; }
+
+@media (max-width: 520px) {
+  .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+  .mc-v { font-size: 1.3rem; }
+  .target-banner { flex-direction: column; }
+  .tb-right { text-align: left; }
+  .survey-body { padding: 2rem 1.2rem; }
+  .survey-footer { padding: 1rem 1.2rem; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── WELCOME ── -->
+<div id="s-welcome">
+  <div class="dots-bg"></div>
+  <div style="position:relative">
+    <div class="corn-icon">
+      <svg viewBox="0 0 56 80" width="56" height="80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="28" y1="72" x2="28" y2="22" stroke="#1B4D1F" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="28" cy="44" rx="11" ry="22" fill="#C8790A" opacity="0.9"/>
+        <line x1="24" y1="24" x2="24" y2="62" stroke="#F0A830" stroke-width="1" opacity="0.55"/>
+        <line x1="28" y1="22" x2="28" y2="66" stroke="#F0A830" stroke-width="1" opacity="0.55"/>
+        <line x1="32" y1="24" x2="32" y2="62" stroke="#F0A830" stroke-width="1" opacity="0.55"/>
+        <path d="M28 38 Q46 28 42 18" stroke="#1B4D1F" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M28 38 Q10 28 14 18" stroke="#1B4D1F" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M28 22 Q31 14 35 10" stroke="#D4A017" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M28 22 Q25 13 28 8" stroke="#D4A017" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="welcome-badge"><span class="dot"></span>AI-Powered Field Analysis</div>
+    <h1 class="w-title">Find what's limiting<br>your <em>crop yield</em></h1>
+    <p class="w-sub">Answer a few quick questions about your farm. The analyzer benchmarks your practices against crop and state potential, then identifies the most important yield-robbing factors with a rupee value attached.</p>
+    <div class="stats-row">
+      <div class="stat-item"><span class="stat-n">8</span><span class="stat-l">Crops covered</span></div>
+      <div class="stat-item"><span class="stat-n">29</span><span class="stat-l">States covered</span></div>
+      <div class="stat-item"><span class="stat-n">₹</span><span class="stat-l">Revenue impact</span></div>
+    </div>
+    <button class="btn btn-primary" onclick="startSurvey()">Begin Analysis &rarr;</button>
+    <p class="disclaimer">Free · No signup required · Results generated using crop-wise agronomic benchmarks for Indian growing conditions</p>
+  </div>
+</div>
+
+<!-- ── SURVEY ── -->
+<div id="s-survey" hidden>
+  <div class="survey-top-bar">
+    <div class="survey-meta">
+      <span class="q-counter" id="q-counter">Question 1 of 10</span>
+      <span class="app-name-sm">Yield Gap analyzer</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:10%"></div></div>
+  </div>
+  <div class="survey-body">
+    <div id="q-container"></div>
+  </div>
+  <div class="survey-footer">
+    <button class="btn btn-secondary" id="back-btn" onclick="prevQ()" style="display:none">&larr; Back</button>
+    <div class="step-dots" id="step-dots"></div>
+    <button class="btn btn-primary" id="next-btn" onclick="nextQ()">Next &rarr;</button>
+  </div>
+</div>
+
+<!-- ── LOADING ── -->
+<div id="s-loading" hidden>
+  <div class="loading-visual">
+    <div class="spinner" id="loading-spinner"></div>
+    <div class="loader-mark" id="loader-mark">&#10003;</div>
+  </div>
+  <h2 class="loading-title" id="loading-title">Analysing your farm data&hellip;</h2>
+  <p class="loading-sub" id="loading-sub">The agronomy engine is reviewing your inputs against crop and state benchmarks</p>
+  <div class="lsteps">
+    <div class="lstep" id="ls0"><div class="ldot"></div><span>Comparing inputs against state benchmarks</span></div>
+    <div class="lstep" id="ls1"><div class="ldot"></div><span>Computing yield gap factors</span></div>
+    <div class="lstep" id="ls2"><div class="ldot"></div><span>Benchmarking against district averages</span></div>
+    <div class="lstep" id="ls3"><div class="ldot"></div><span>Consulting AI agronomist</span></div>
+    <div class="lstep" id="ls4"><div class="ldot"></div><span>Preparing personalised recommendations</span></div>
+  </div>
+</div>
+
+<!-- ── RESULTS ── -->
+<div id="s-results" hidden></div>
+
+</div><!-- #app -->
+
+<script>
+/* ───────────────────────────────────────────────────
+   QUESTIONS
+────────────────────────────────────────────────── */
+const STATE_OPTIONS = [
+  'Andhra Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Gujarat','Haryana',
+  'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
+  'Maharashtra','Odisha','Punjab','Rajasthan','Tamil Nadu','Telangana',
+  'Uttar Pradesh','Uttarakhand','West Bengal','Jammu & Kashmir','Tripura',
+  'Meghalaya','Manipur','Nagaland','Mizoram','Arunachal Pradesh','Goa'
+];
+
+const VARIETY_OPTIONS = [
+  'Certified / improved variety or hybrid',
+  'State-released variety',
+  'Farm-saved seed / open-pollinated variety',
+  'Local / unknown variety'
+];
+
+const CROP_PROFILES = {
+  'Maize': {
+    potential: 85, avg: 38, N: 150, P: 70, irr: 4, price: 2100, defaultYield: 35, sliderMax: 120,
+    nResponse: 0.12, pResponse: 0.08, irrResponse: 3.5, maxNGap: 22, maxPGap: 10, maxIrrGap: 20,
+    stages: 'germination, knee-high, tasseling/silking, and grain filling',
+    nutrientPlan: 'Split N as 33% basal, 33% at V6/knee-high, and 33% before tasseling. Keep full P as basal near the seed zone.',
+    weedRec: 'Keep the field weed-free for 0-45 days. Use atrazine pre-emergence where locally recommended, followed by interculture or hand weeding around 25-30 DAS.',
+    pestRec: 'Scout for fall armyworm from V3 to tasseling. Treat early whorl-stage infestation with locally approved molecules such as emamectin benzoate or spinetoram.',
+    harvestRec: 'Harvest when husk dries and grain moisture is near safe shelling level; dry grain properly before storage.'
+  },
+  'Rice': {
+    potential: 70, avg: 42, N: 120, P: 60, irr: 8, price: 2300, defaultYield: 40, sliderMax: 100,
+    nResponse: 0.10, pResponse: 0.07, irrResponse: 2.5, maxNGap: 18, maxPGap: 8, maxIrrGap: 18,
+    stages: 'establishment, active tillering, panicle initiation, flowering, and grain filling',
+    nutrientPlan: 'Apply basal P and split N at basal, active tillering, and panicle initiation. Avoid late heavy N because it increases lodging and disease pressure.',
+    weedRec: 'Maintain a clean field in the first 30-40 days. Use stale seedbed or puddling, then a suitable pre-emergence or early post-emergence herbicide based on local advice.',
+    pestRec: 'Scout for stem borer, leaf folder, blast, and bacterial leaf blight. Avoid excess N and keep field sanitation strong.',
+    harvestRec: 'Harvest when 80-85% panicles are mature and dry grain quickly to reduce shattering and storage losses.'
+  },
+  'Wheat': {
+    potential: 55, avg: 34, N: 120, P: 60, irr: 5, price: 2400, defaultYield: 32, sliderMax: 80,
+    nResponse: 0.09, pResponse: 0.06, irrResponse: 2.2, maxNGap: 16, maxPGap: 7, maxIrrGap: 14,
+    stages: 'crown root initiation, tillering, late jointing, flowering, and grain filling',
+    nutrientPlan: 'Apply full P and half N at sowing, then top-dress remaining N at crown root initiation and first node where irrigation is available.',
+    weedRec: 'Control weeds before 30-35 DAS. Phalaris, wild oats, and broadleaf weeds need early identification and a locally suitable herbicide.',
+    pestRec: 'Monitor rusts, aphids, and termites. Use resistant varieties and avoid delayed sowing where terminal heat is common.',
+    harvestRec: 'Harvest at hard dough maturity and avoid delayed harvest under hot winds to reduce grain shrivelling.'
+  },
+  'Cotton': {
+    potential: 32, avg: 17, N: 100, P: 50, irr: 5, price: 7000, defaultYield: 16, sliderMax: 50,
+    nResponse: 0.05, pResponse: 0.04, irrResponse: 1.4, maxNGap: 7, maxPGap: 4, maxIrrGap: 9,
+    stages: 'square formation, flowering, boll development, and boll filling',
+    nutrientPlan: 'Use soil-test-based fertilizer, split N and K across vegetative and reproductive stages, and avoid excess early N that creates rank growth.',
+    weedRec: 'Keep rows weed-free for 45-60 days. Combine pre-emergence herbicide, interculture, and directed weeding to protect early canopy growth.',
+    pestRec: 'Scout twice weekly for sucking pests, bollworms, and pink bollworm. Use ETL-based sprays and rotate modes of action.',
+    harvestRec: 'Pick only fully opened clean kapas in repeated pickings; keep wet or stained kapas separate.'
+  },
+  'Soybean': {
+    potential: 30, avg: 14, N: 25, P: 60, irr: 2, price: 4600, defaultYield: 13, sliderMax: 45,
+    nResponse: 0.03, pResponse: 0.08, irrResponse: 1.8, maxNGap: 3, maxPGap: 7, maxIrrGap: 7,
+    stages: 'germination, flowering, pod initiation, and seed filling',
+    nutrientPlan: 'Prioritize seed treatment, rhizobium inoculation, basal P, and sulphur. Soybean needs starter N only; nodulation drives most N supply.',
+    weedRec: 'Protect soybean from weeds for 20-45 DAS using pre-emergence herbicide or one timely interculture plus hand weeding.',
+    pestRec: 'Scout for girdle beetle, stem fly, semilooper, and yellow mosaic. Use seed treatment and early rouging of virus-affected plants.',
+    harvestRec: 'Harvest when most pods turn brown and seed moisture is safe; delayed harvest increases shattering.'
+  },
+  'Mustard': {
+    potential: 28, avg: 14, N: 80, P: 40, irr: 3, price: 5650, defaultYield: 14, sliderMax: 45,
+    nResponse: 0.07, pResponse: 0.05, irrResponse: 1.7, maxNGap: 9, maxPGap: 5, maxIrrGap: 8,
+    stages: 'rosette, branching, flowering, and siliqua filling',
+    nutrientPlan: 'Apply basal P, sulphur, and half N at sowing; top-dress remaining N before first irrigation or branching.',
+    weedRec: 'Keep the crop weed-free for 25-40 DAS. Early hoeing or a suitable pre-emergence herbicide protects branching.',
+    pestRec: 'Scout for aphids from flowering onward and monitor Alternaria blight. Spray only when threshold is crossed.',
+    harvestRec: 'Harvest when 70-80% siliquae turn yellow to reduce shattering losses.'
+  },
+  'Groundnut': {
+    potential: 35, avg: 18, N: 25, P: 50, irr: 4, price: 6500, defaultYield: 18, sliderMax: 55,
+    nResponse: 0.03, pResponse: 0.06, irrResponse: 1.9, maxNGap: 3, maxPGap: 6, maxIrrGap: 9,
+    stages: 'emergence, flowering, pegging, pod development, and kernel filling',
+    nutrientPlan: 'Use seed treatment, rhizobium, basal P, gypsum at flowering/pegging, and calcium management for better pod filling.',
+    weedRec: 'Keep the field weed-free for 20-45 DAS. Avoid deep interculture after pegging begins.',
+    pestRec: 'Monitor leaf miner, tikka leaf spot, collar rot, and stem rot. Use seed treatment and avoid waterlogging.',
+    harvestRec: 'Dig when inner pod shell shows dark markings; dry pods carefully to preserve kernel quality.'
+  },
+  'Sugarcane': {
+    potential: 1100, avg: 720, N: 250, P: 115, irr: 12, price: 350, defaultYield: 750, sliderMax: 1500,
+    nResponse: 1.2, pResponse: 0.6, irrResponse: 22, maxNGap: 150, maxPGap: 70, maxIrrGap: 180,
+    stages: 'germination, tillering, grand growth, and maturity',
+    nutrientPlan: 'Apply basal P and split N across early tillering and grand growth. Add organic manure and micronutrients where soil test indicates.',
+    weedRec: 'Keep the crop weed-free for the first 90-120 days using trash mulching, interculture, earthing-up, and locally recommended herbicides.',
+    pestRec: 'Scout for early shoot borer, top borer, pyrilla, scale insects, red rot, and wilt. Use healthy setts and sett treatment.',
+    harvestRec: 'Harvest at physiological maturity based on variety duration and mill schedule; avoid stale cane delays.'
+  }
+};
+
+const STATE_FACTORS = {
+  'Punjab': { potential: 1.10, avg: 1.18 }, 'Haryana': { potential: 1.08, avg: 1.12 },
+  'Uttar Pradesh': { potential: 1.02, avg: 1.00 }, 'Bihar': { potential: 0.95, avg: 0.95 },
+  'West Bengal': { potential: 0.98, avg: 1.02 }, 'Odisha': { potential: 0.94, avg: 0.92 },
+  'Assam': { potential: 0.88, avg: 0.86 }, 'Madhya Pradesh': { potential: 1.02, avg: 1.03 },
+  'Maharashtra': { potential: 1.00, avg: 1.00 }, 'Karnataka': { potential: 0.98, avg: 0.96 },
+  'Telangana': { potential: 1.00, avg: 1.02 }, 'Andhra Pradesh': { potential: 1.02, avg: 1.04 },
+  'Tamil Nadu': { potential: 1.04, avg: 1.08 }, 'Kerala': { potential: 0.92, avg: 0.90 },
+  'Gujarat': { potential: 1.03, avg: 1.05 }, 'Rajasthan': { potential: 0.90, avg: 0.82 },
+  'Chhattisgarh': { potential: 0.95, avg: 0.92 }, 'Jharkhand': { potential: 0.90, avg: 0.85 },
+  'Uttarakhand': { potential: 0.92, avg: 0.88 }, 'Himachal Pradesh': { potential: 0.88, avg: 0.84 },
+  'Delhi': { potential: 1.00, avg: 0.95 }, 'Jammu & Kashmir': { potential: 0.88, avg: 0.82 },
+  'Goa': { potential: 0.92, avg: 0.88 }, 'Tripura': { potential: 0.86, avg: 0.84 },
+  'Meghalaya': { potential: 0.84, avg: 0.80 }, 'Manipur': { potential: 0.84, avg: 0.80 },
+  'Nagaland': { potential: 0.82, avg: 0.78 }, 'Mizoram': { potential: 0.82, avg: 0.78 },
+  'Arunachal Pradesh': { potential: 0.80, avg: 0.76 }
+};
+
+const QUESTIONS = [
+  { id: 'crop', label: 'Which crop do you want to analyse?', type: 'select' },
+  { id: 'state', label: 'Which state is your farm located in?', type: 'select' },
+  { id: 'season', label: 'Which season did you grow this crop?', type: 'radio', options: ['Kharif / monsoon season','Rabi / winter season','Summer / irrigated season'] },
+  { id: 'variety', label: 'What type of seed or planting material did you use?', type: 'radio' },
+  { id: 'sowing_delay', label: 'How timely was sowing or planting relative to the local optimum?', type: 'radio', options: ['On time (optimal window)','1-2 weeks late','3-4 weeks late','More than 4 weeks late'] },
+  { id: 'nitrogen', label: 'Total nitrogen (N) applied this season', type: 'slider', min: 0, step: 5, unit: 'kg N / ha' },
+  { id: 'phosphorus', label: 'Total phosphorus (P2O5) applied this season', type: 'slider', min: 0, step: 5, unit: 'kg P2O5 / ha' },
+  { id: 'irrigations', label: 'Number of irrigations given to the crop', type: 'slider', min: 0, step: 1, unit: 'irrigations' },
+  { id: 'weed_mgmt', label: 'How was weed management carried out?', type: 'radio', options: ['Herbicide + interculture / hand weeding','Manual weeding - 2 or more timely operations','Manual weeding - 1 late operation','No weed management done'] },
+  { id: 'pest_disease', label: 'How severe was pest and disease incidence this season?', type: 'radio', options: ['None observed','Mild (< 25% damage)','Moderate (25-50% damage)','Severe (> 50% damage)'] },
+  { id: 'actual_yield', label: 'What was your actual yield this season?', type: 'slider', min: 1, step: 1, unit: 'q / ha' }
+];
+
+/* ───────────────────────────────────────────────────
+   APP STATE
+────────────────────────────────────────────────── */
+const state = { q: 0, answers: {} };
+window.MAIZE_BACKEND_URL = window.MAIZE_BACKEND_URL || '';
+let loadingTimer = null;
+
+function getCropProfile(crop) {
+  return CROP_PROFILES[crop || state.answers.crop] || CROP_PROFILES.Maize;
+}
+
+function getBenchmark(ans) {
+  const profile = getCropProfile(ans.crop);
+  const factor = STATE_FACTORS[ans.state] || { potential: 0.95, avg: 0.90 };
+  return {
+    potential: Math.max(1, Math.round(profile.potential * factor.potential)),
+    avg: Math.max(1, Math.round(profile.avg * factor.avg)),
+    N: profile.N,
+    P: profile.P,
+    irr: profile.irr,
+    price: profile.price,
+    unit: 'q / ha',
+    profile
+  };
+}
+
+function roundToStep(value, step) {
+  return Math.max(step, Math.ceil(value / step) * step);
+}
+
+function getQuestion(base) {
+  const q = { ...base };
+  const profile = getCropProfile();
+  if (q.id === 'crop') {
+    q.options = Object.keys(CROP_PROFILES);
+  } else if (q.id === 'state') {
+    q.options = STATE_OPTIONS;
+  } else if (q.id === 'variety') {
+    q.options = VARIETY_OPTIONS;
+  } else if (q.id === 'nitrogen') {
+    q.max = roundToStep(profile.N * 1.7, 5);
+    q.def = roundToStep(profile.N * 0.55, 5);
+  } else if (q.id === 'phosphorus') {
+    q.max = roundToStep(profile.P * 1.7, 5);
+    q.def = roundToStep(profile.P * 0.55, 5);
+  } else if (q.id === 'irrigations') {
+    q.max = Math.max(6, Math.ceil(profile.irr * 1.6));
+    q.def = Math.max(1, Math.round(profile.irr * 0.6));
+  } else if (q.id === 'actual_yield') {
+    q.label = `What was your actual ${state.answers.crop || 'crop'} yield this season?`;
+    q.max = profile.sliderMax;
+    q.def = profile.defaultYield;
+  }
+  return q;
+}
+
+function showScreen(id) {
+  ['s-welcome','s-survey','s-loading','s-results'].forEach(s => {
+    document.getElementById(s).hidden = (s !== id);
+  });
+}
+
+/* ───────────────────────────────────────────────────
+   SURVEY LOGIC
+────────────────────────────────────────────────── */
+function startSurvey() {
+  state.q = 0;
+  state.answers = {};
+  showScreen('s-survey');
+  buildDots();
+  renderQ();
+}
+
+function buildDots() {
+  const container = document.getElementById('step-dots');
+  container.innerHTML = QUESTIONS.map((_, i) => `<div class="step-dot" id="dot-${i}"></div>`).join('');
+}
+
+function updateDots() {
+  QUESTIONS.forEach((_, i) => {
+    const d = document.getElementById(`dot-${i}`);
+    if (i < state.q) d.className = 'step-dot done';
+    else if (i === state.q) d.className = 'step-dot active';
+    else d.className = 'step-dot';
+  });
+}
+
+function renderQ() {
+  const q = getQuestion(QUESTIONS[state.q]);
+  const total = QUESTIONS.length;
+  const pct = Math.round(((state.q + 1) / total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('q-counter').textContent = `Question ${state.q + 1} of ${total}`;
+  document.getElementById('back-btn').style.display = state.q === 0 ? 'none' : '';
+  document.getElementById('next-btn').textContent = state.q === total - 1 ? 'Generate Analysis →' : 'Next →';
+  updateDots();
+
+  if (state.answers[q.id] === undefined) {
+    if (q.type === 'slider') state.answers[q.id] = q.def;
+    else state.answers[q.id] = q.options[0];
+  }
+
+  let inputHTML = '';
+
+  if (q.type === 'select') {
+    inputHTML = `
+      <div class="select-wrap">
+        <select class="select-input" id="q-input" onchange="onSelectChange(this,'${q.id}')">
+          ${q.options.map(o => `<option value="${o}"${state.answers[q.id]===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+        <svg class="select-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1l5 5 5-5" stroke="#6B5C45" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>`;
+  } else if (q.type === 'radio') {
+    const sel = state.answers[q.id];
+    inputHTML = `<div class="radio-grid">${q.options.map(o =>
+      `<div class="radio-opt${sel===o?' sel':''}" data-qid="${q.id}" data-val="${encodeURIComponent(o)}">
+        <div class="radio-circle"></div><span>${o}</span>
+      </div>`
+    ).join('')}</div>`;
+  } else if (q.type === 'slider') {
+    const val = state.answers[q.id];
+    const rawPct = ((val - q.min) / (q.max - q.min) * 100).toFixed(1);
+    inputHTML = `
+      <div class="slider-wrap">
+        <div class="slider-num-display">
+          <span class="slider-big" id="sval">${val}</span>
+          <span class="slider-unit">${q.unit}</span>
+        </div>
+        <input type="range" class="rng" id="q-slider"
+          min="${q.min}" max="${q.max}" step="${q.step}" value="${val}"
+          style="background: linear-gradient(to right, var(--green) 0%, var(--green) ${rawPct}%, rgba(28,18,8,0.1) ${rawPct}%)"
+          oninput="onSlider(this,'${q.id}',${q.min},${q.max})">
+        <div class="range-labels"><span>${q.min} ${q.unit}</span><span>${q.max} ${q.unit}</span></div>
+      </div>`;
+  }
+
+  const container = document.getElementById('q-container');
+  container.style.opacity = '0';
+  container.style.transform = 'translateY(10px)';
+  container.innerHTML = `
+    <div class="q-num">Question ${state.q + 1} / ${total}</div>
+    <div class="q-label">${q.label}</div>
+    ${inputHTML}`;
+  requestAnimationFrame(() => {
+    container.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
+    container.style.opacity = '1';
+    container.style.transform = 'translateY(0)';
+  });
+}
+
+// Radio click via event delegation
+document.addEventListener('click', e => {
+  const opt = e.target.closest('.radio-opt');
+  if (!opt) return;
+  const qid = opt.dataset.qid;
+  const val = decodeURIComponent(opt.dataset.val);
+  document.querySelectorAll(`.radio-opt[data-qid="${qid}"]`).forEach(r => r.classList.remove('sel'));
+  opt.classList.add('sel');
+  state.answers[qid] = val;
+});
+
+function onSelectChange(el, qid) {
+  state.answers[qid] = el.value;
+  if (qid === 'crop') {
+    ['variety','nitrogen','phosphorus','irrigations','actual_yield'].forEach(id => delete state.answers[id]);
+  }
+}
+
+function onSlider(el, qid, min, max) {
+  const val = parseFloat(el.value);
+  const pct = ((val - min) / (max - min) * 100).toFixed(1);
+  el.style.background = `linear-gradient(to right, var(--green) 0%, var(--green) ${pct}%, rgba(28,18,8,0.1) ${pct}%)`;
+  document.getElementById('sval').textContent = val;
+  state.answers[qid] = val;
+}
+
+function nextQ() {
+  const q = getQuestion(QUESTIONS[state.q]);
+  if (!state.answers[q.id] && q.type !== 'slider') state.answers[q.id] = q.options[0];
+  if (state.q < QUESTIONS.length - 1) {
+    state.q++;
+    renderQ();
+  } else {
+    runAnalysis();
+  }
+}
+
+function prevQ() {
+  if (state.q > 0) { state.q--; renderQ(); }
+}
+
+/* ───────────────────────────────────────────────────
+   LOADING SEQUENCE
+────────────────────────────────────────────────── */
+function startLoadingSteps() {
+  const els = ['ls0','ls1','ls2','ls3','ls4'];
+  clearInterval(loadingTimer);
+  document.getElementById('loading-spinner').classList.remove('done');
+  document.getElementById('loader-mark').classList.remove('show');
+  document.getElementById('loading-title').textContent = 'Analysing your farm data...';
+  document.getElementById('loading-sub').textContent = 'The agronomy engine is reviewing your inputs against crop and state benchmarks';
+  els.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('vis', 'done');
+  });
+  let i = 0;
+  loadingTimer = setInterval(() => {
+    if (i > 0 && i <= els.length) document.getElementById(els[i-1]).classList.add('done');
+    if (i < els.length) { document.getElementById(els[i]).classList.add('vis'); i++; }
+    else clearInterval(loadingTimer);
+  }, 750);
+}
+
+function finishLoadingSteps() {
+  const els = ['ls0','ls1','ls2','ls3','ls4'];
+  clearInterval(loadingTimer);
+  els.forEach(id => document.getElementById(id).classList.add('vis', 'done'));
+  document.getElementById('loading-spinner').classList.add('done');
+  document.getElementById('loader-mark').classList.add('show');
+  document.getElementById('loading-title').textContent = 'Analysis ready';
+  document.getElementById('loading-sub').textContent = 'Recommendations prepared for your crop, state, and management gaps';
+  return new Promise(resolve => setTimeout(resolve, 850));
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* ───────────────────────────────────────────────────
+   YIELD GAP COMPUTATION
+────────────────────────────────────────────────── */
+function computeGaps(ans) {
+  const b = getBenchmark(ans);
+  const profile = b.profile;
+  const actual = parseFloat(ans.actual_yield);
+  const factors = [];
+
+  const varietyPenalty = {
+    'Certified / improved variety or hybrid': { gap: 0 },
+    'State-released variety': { gap: Math.max(2, Math.round(b.potential * 0.05)), rec: `A good state-released variety can perform well, but top-performing certified seed or hybrids often add 5-10% yield when matched to ${ans.state}. Compare local trial results before next sowing.` },
+    'Farm-saved seed / open-pollinated variety': { gap: Math.max(4, Math.round(b.potential * 0.12)), rec: `Farm-saved seed usually loses vigour, uniformity, and disease protection. Use certified seed with seed treatment and keep seed rate calibrated for ${ans.crop}.` },
+    'Local / unknown variety': { gap: Math.max(6, Math.round(b.potential * 0.18)), rec: `Unknown or local planting material is a high-risk yield constraint. Choose a locally recommended variety with known maturity duration, disease tolerance, and market acceptance.` }
+  };
+  const vd = varietyPenalty[ans.variety];
+  if (vd && vd.gap > 0) factors.push({ name: 'Variety / seed quality', gap: vd.gap, rec: vd.rec });
+
+  const sowMap = { 'On time (optimal window)': 0, '1-2 weeks late': 6, '3-4 weeks late': 14, 'More than 4 weeks late': 22 };
+  const sowGap = sowMap[ans.sowing_delay] || 0;
+  if (sowGap > 0) factors.push({ name: 'Late sowing / planting', gap: Math.min(Math.round(b.potential * 0.24), sowGap), rec: `Late establishment reduces the effective growth period and pushes sensitive stages into heat, drought, cold, or heavy-rain risk. Prepare land and inputs early enough to sow ${ans.crop} in the local optimum window.` });
+
+  const nDef = Math.max(0, b.N - parseFloat(ans.nitrogen));
+  const nGap = Math.min(profile.maxNGap, Math.round(nDef * profile.nResponse));
+  if (nGap > 0) factors.push({ name: 'Nitrogen (N) deficiency', gap: nGap, rec: `Benchmark for ${ans.crop}: about ${b.N} kg N/ha. You applied ${ans.nitrogen} kg/ha, leaving a ${nDef} kg/ha gap. ${profile.nutrientPlan}` });
+
+  const pDef = Math.max(0, b.P - parseFloat(ans.phosphorus));
+  const pGap = Math.min(profile.maxPGap, Math.round(pDef * profile.pResponse));
+  if (pGap > 0) factors.push({ name: 'Phosphorus (P) deficiency', gap: pGap, rec: `Benchmark for ${ans.crop}: about ${b.P} kg P2O5/ha. Phosphorus should mostly be placed as basal because it moves slowly in soil. Use soil-test results to choose DAP, SSP, or complex fertilizer.` });
+
+  const irrDef = Math.max(0, b.irr - parseInt(ans.irrigations));
+  const irrGap = Math.min(profile.maxIrrGap, Math.round(irrDef * profile.irrResponse));
+  if (irrGap > 0) factors.push({ name: 'Water stress / missed irrigation', gap: irrGap, rec: `Critical water stages for ${ans.crop}: ${profile.stages}. Prioritize irrigation or moisture conservation at these stages before irrigating less sensitive periods.` });
+
+  const weedMap = {
+    'Herbicide + interculture / hand weeding': 0,
+    'Manual weeding - 2 or more timely operations': Math.max(2, Math.round(b.potential * 0.05)),
+    'Manual weeding - 1 late operation': Math.max(4, Math.round(b.potential * 0.12)),
+    'No weed management done': 20
+  };
+  const weedGap = Math.min(Math.round(b.potential * 0.25), weedMap[ans.weed_mgmt] || 0);
+  if (weedGap > 0) factors.push({ name: 'Weed competition', gap: weedGap, rec: profile.weedRec });
+
+  const pestMap = {
+    'None observed': 0,
+    'Mild (< 25% damage)': Math.max(2, Math.round(b.potential * 0.07)),
+    'Moderate (25-50% damage)': Math.max(5, Math.round(b.potential * 0.18)),
+    'Severe (> 50% damage)': Math.max(8, Math.round(b.potential * 0.30))
+  };
+  const pestGap = pestMap[ans.pest_disease] || 0;
+  if (pestGap > 0) factors.push({ name: 'Pest and disease damage', gap: pestGap, rec: profile.pestRec });
+
+  factors.sort((a, z) => z.gap - a.gap);
+  const top5 = factors.slice(0, 5);
+  const totalGap = top5.reduce((s, f) => s + f.gap, 0);
+  const achievable = Math.min(b.potential, actual + totalGap);
+  const score = Math.min(100, Math.round((actual / b.potential) * 100));
+
+  return { crop: ans.crop, factors: top5, totalGap, achievable, districtAvg: b.avg, potential: b.potential, score, actual, benchmark: b, profile };
+}
+
+/* ───────────────────────────────────────────────────
+   CLAUDE API CALL
+────────────────────────────────────────────────── */
+async function callClaude(ans, gaps) {
+  const factorStr = gaps.factors.map(f => `• ${f.name}: ${f.gap} q/ha identified gap`).join('\n');
+  const prompt = `You are the world's leading maize agronomist with deep expertise in Indian smallholder farming systems. A farmer has completed a yield gap assessment. Provide your expert agronomic interpretation.
+
+Farmer data:
+- State: ${ans.state}
+- Season: ${ans.season}
+- Hybrid type: ${ans.hybrid}
+- Sowing timing: ${ans.sowing_delay}
+- N applied: ${ans.nitrogen} kg/ha (state recommendation: ${gaps.benchmark.N} kg/ha)
+- P applied: ${ans.phosphorus} kg P₂O₅/ha (state recommendation: ${gaps.benchmark.P} kg/ha)
+- Irrigations given: ${ans.irrigations} (recommended: ${gaps.benchmark.irr})
+- Weed management: ${ans.weed_mgmt}
+- Pest/disease: ${ans.pest_disease}
+- Actual yield: ${gaps.actual} q/ha
+- State yield potential: ${gaps.potential} q/ha
+- District average: ${gaps.districtAvg} q/ha
+- Yield score: ${gaps.score}/100
+
+Top computed yield-limiting factors:
+${factorStr || 'No significant gaps identified — farmer is performing at or near potential.'}
+
+Respond ONLY with valid JSON (absolutely no markdown, no backticks, no extra text before or after):
+{
+  "key_insight": "One sharp, specific, actionable insight about this farmer's most critical constraint — 2 sentences maximum, reference actual numbers from their data",
+  "analysis": "3–4 sentences of expert analysis contextualising their yield gap within the ${ans.state} situation, referencing specific practices and their agronomic consequence",
+  "action_plan": ["Specific action 1 with timing, dose, and product where relevant", "Action 2", "Action 3", "Action 4"],
+  "next_season_target": <integer: realistic achievable yield next season in q/ha if they follow the action plan>
+}`;
+
+  try {
+    const backendUrl = (window.MAIZE_BACKEND_URL || '').replace(/\/+$/, '');
+    if (!backendUrl) throw new Error('No backend configured');
+
+    const r = await fetch(`${backendUrl}/api/analyse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: ans, gaps, prompt })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Backend analysis failed');
+    return d.result || d;
+  } catch {
+    return {
+      key_insight: `Your ${gaps.actual} q/ha yield is ${((gaps.actual / gaps.potential) * 100).toFixed(0)}% of your state's ${gaps.potential} q/ha potential. Addressing your top limiting factor alone could add ${gaps.factors[0] ? gaps.factors[0].gap : 'several'} q/ha next season.`,
+      analysis: `In ${ans.state}, the state average stands at ${gaps.districtAvg} q/ha against a genetic yield ceiling of ${gaps.potential} q/ha for improved hybrids under well-managed conditions. Your farm is ${gaps.actual >= gaps.districtAvg ? 'above' : 'below'} the district average, indicating ${gaps.actual >= gaps.districtAvg ? 'moderate management with room to grow' : 'significant management gaps that can be closed with targeted interventions'}. The identified constraints — particularly nutrition and water management — are all within your direct control and respond quickly to correction.`,
+      action_plan: [
+        gaps.factors[0] ? `Priority 1 — ${gaps.factors[0].name}: ${gaps.factors[0].rec.split('.')[0]}.` : 'Maintain current management practices.',
+        `Apply fertilizers in split doses aligned with crop growth stages rather than as a single basal application.`,
+        `Plan land preparation to enable sowing within the optimal window — this is a zero-cost intervention with high returns.`,
+        `Scout for Fall Armyworm from V3 stage every 5 days; early detection at whorl stage prevents severe yield loss.`
+      ],
+      next_season_target: Math.min(gaps.potential, gaps.actual + Math.round(gaps.totalGap * 0.6))
+    };
+  }
+}
+
+/* ───────────────────────────────────────────────────
+   SCORE HELPERS
+────────────────────────────────────────────────── */
+function scoreColor(s) {
+  if (s <= 30) return '#E53935';
+  if (s <= 50) return '#F57C00';
+  if (s <= 70) return '#F9A825';
+  if (s <= 85) return '#7CB342';
+  return '#2E7D33';
+}
+function scoreGrade(s) {
+  if (s <= 30) return 'Critical — Urgent attention needed';
+  if (s <= 50) return 'Below average — Large yield gap';
+  if (s <= 70) return 'Fair — Moderate improvement possible';
+  if (s <= 85) return 'Good — Above average management';
+  return 'Excellent — Near-optimal performance';
+}
+
+/* ───────────────────────────────────────────────────
+   RUN ANALYSIS
+────────────────────────────────────────────────── */
+async function runAnalysis() {
+  showScreen('s-loading');
+  startLoadingSteps();
+  const minimumLoading = delay(2600);
+  const gaps = computeGaps(state.answers);
+  const claude = await callClaude(state.answers, gaps);
+  await minimumLoading;
+  await finishLoadingSteps();
+  renderResults(gaps, claude);
+}
+
+/* ───────────────────────────────────────────────────
+   RENDER RESULTS
+────────────────────────────────────────────────── */
+function renderResults(gaps, cl) {
+  const sc = gaps.score;
+  const circ = 2 * Math.PI * 65;
+  const offset = (circ * (1 - sc / 100)).toFixed(1);
+  const col = scoreColor(sc);
+  const grade = scoreGrade(sc);
+  const maxGap = Math.max(...gaps.factors.map(f => f.gap), 1);
+  const mkp = 2100; // ₹/q market price assumption
+
+  const factorsHTML = gaps.factors.length === 0
+    ? `<div class="no-gap-msg">&#10003; No significant yield gaps detected — your management is near-optimal. Excellent work!</div>`
+    : gaps.factors.map(f => {
+        const pct = Math.round((f.gap / maxGap) * 100);
+        const rev = Math.round(f.gap * mkp);
+        return `
+          <div class="factor-card">
+            <div class="fc-top">
+              <span class="fc-name">${f.name}</span>
+              <div class="fc-badges">
+                <span class="badge-loss">&#8722;${f.gap} q/ha</span>
+                <span class="badge-gain">+&#8377;${rev.toLocaleString('en-IN')} potential</span>
+              </div>
+            </div>
+            <div class="fc-bar-track"><div class="fc-bar-fill" style="width:${pct}%"></div></div>
+            <div class="fc-rec">${f.rec}</div>
+          </div>`;
+      }).join('');
+
+  const actionsHTML = (cl.action_plan || []).map((a, i) =>
+    `<div class="action-row"><span class="a-num">${i + 1}</span><span class="a-text">${a}</span></div>`
+  ).join('');
+
+  const nextTarget = cl.next_season_target || Math.min(gaps.potential, gaps.actual + Math.round(gaps.totalGap * 0.6));
+  const revenueGain = Math.round((nextTarget - gaps.actual) * mkp);
+
+  document.getElementById('s-results').innerHTML = `
+    <div class="res-header">
+      <div class="rh-content">
+        <div class="rh-label">Yield Gap Analysis &mdash; ${state.answers.state}, ${state.answers.season ? state.answers.season.split(' ')[0] : ''}</div>
+        <div class="rh-name">Yield Performance Report</div>
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 160 160" width="160" height="160" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="80" cy="80" r="65" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="13"/>
+            <circle id="gauge-arc" cx="80" cy="80" r="65" fill="none" stroke="${col}" stroke-width="13"
+              stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${circ.toFixed(1)}"
+              stroke-linecap="round" transform="rotate(-90 80 80)"
+              style="transition: stroke-dashoffset 1.6s cubic-bezier(0.4,0,0.2,1)"/>
+          </svg>
+          <div class="gauge-center">
+            <span class="gauge-num">${sc}</span>
+            <span class="gauge-of">/ 100</span>
+          </div>
+        </div>
+        <div style="margin-bottom:0.8rem"><span class="score-grade">${grade}</span></div>
+        ${cl.key_insight ? `<p class="key-insight">${cl.key_insight}</p>` : ''}
+      </div>
+    </div>
+
+    <div class="content-wrap">
+      <div class="metrics-grid">
+        <div class="mc">
+          <div class="mc-l">Your yield</div>
+          <div class="mc-v">${gaps.actual}<span class="mc-u">q / ha</span></div>
+        </div>
+        <div class="mc a">
+          <div class="mc-l">District average</div>
+          <div class="mc-v">${gaps.districtAvg}<span class="mc-u">q / ha</span></div>
+        </div>
+        <div class="mc g">
+          <div class="mc-l">State potential</div>
+          <div class="mc-v">${gaps.potential}<span class="mc-u">q / ha</span></div>
+        </div>
+      </div>
+
+      ${revenueGain > 0 ? `
+      <div class="target-banner">
+        <div class="tb-left">
+          <div class="tb-l">Next season target</div>
+          <div class="tb-v">${nextTarget} q/ha</div>
+          <div class="tb-s">If you address your top 3 limiting factors</div>
+        </div>
+        <div class="tb-right">
+          <div class="tb-l">Potential revenue gain</div>
+          <div class="tb-v">&#8377;${revenueGain.toLocaleString('en-IN')}</div>
+          <div class="tb-s">at &#8377;2,100/q market price</div>
+        </div>
+      </div>` : ''}
+
+      <div class="section">
+        <div class="sec-head">
+          <div class="sec-icon red">!</div>
+          <div class="sec-title">Top Yield-Limiting Factors</div>
+        </div>
+        ${factorsHTML}
+      </div>
+
+      <div class="section">
+        <div class="sec-head">
+          <div class="sec-icon green">AI</div>
+          <div class="sec-title">Agronomist's Expert Analysis</div>
+        </div>
+        <div class="ai-card">
+          <div class="ai-top">
+            <span class="ai-badge">AI Agronomist</span>
+            <span class="ai-byline">Powered by Anthropic Claude &bull; Evidence-based maize science</span>
+          </div>
+          <p class="ai-analysis">${cl.analysis}</p>
+          ${actionsHTML ? `
+            <div class="divider"></div>
+            <div class="actions-label">Priority Action Plan for Next Season</div>
+            <div class="action-list">${actionsHTML}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="restart-row">
+        <button class="btn btn-primary" onclick="restart()">Analyse Another Season &nbsp;&#8635;</button>
+      </div>
+    </div>`;
+
+  showScreen('s-results');
+
+  // Animate gauge after render
+  setTimeout(() => {
+    const arc = document.getElementById('gauge-arc');
+    if (arc) arc.style.strokeDashoffset = offset;
+  }, 120);
+}
+
+function restart() {
+  state.q = 0;
+  state.answers = {};
+  showScreen('s-welcome');
+}
+</script>
+</body>
+</html>
